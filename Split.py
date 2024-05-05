@@ -1,4 +1,4 @@
-def split_sentence_with_keywords(sentence, keywords):
+ def split_sentence_with_keywords(sentence, keywords):
     # Tokenize the sentence into words and punctuation marks
     tokens = re.findall(r'\w+|[^\w\s]', sentence)
     
@@ -12,17 +12,15 @@ def split_sentence_with_keywords(sentence, keywords):
         if token.lower() in keywords:
             # If it is a keyword, add the current part to the split parts list
             if current_part:
-                split_parts.append(''.join(current_part))
+                split_parts.append(' '.join(current_part))
                 current_part = []
-            # Add the keyword as a separate part
-            split_parts.append(token)
         else:
             # If it is not a keyword, add it to the current part
             current_part.append(token)
     
     # Add the last part to the split parts list
     if current_part:
-        split_parts.append(''.join(current_part))
+        split_parts.append(' '.join(current_part))
     
     return split_parts
 
@@ -30,7 +28,7 @@ def split_sentence_with_keywords(sentence, keywords):
 import re
 
 sentence = "Today, I eat potato. I am happy."
-keywords = ["and", "or", "not", "potato"]
+keywords = ["and", "or", "not", "."]
 
 split_parts = split_sentence_with_keywords(sentence, keywords)
 print("Split parts of the sentence:", split_parts)
