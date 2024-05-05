@@ -69,65 +69,27 @@ while True:
 
 
 
-import re
+ import re
 from sklearn.metrics.pairwise import cosine_similarity
 from sentence_transformers import SentenceTransformer
 
 # Load a pretrained sentence transformer model
 model = SentenceTransformer('paraphrase-distilroberta-base-v1')
 
-def extract_conditions(query):
-    # Define keywords and syntax patterns to identify conditions
-    keywords = ["where", "and", "or"]
-    syntax_patterns = ["[a-zA-Z_]+\s*=\s*[^\s,]+", "[a-zA-Z_]+\s*like\s*'%[^']*%'"]
-    
-    # Initialize list to store extracted conditions
-    conditions = []
-    
-    # Iterate through keywords and syntax patterns to extract conditions
-    for keyword in keywords:
-        idx = query.lower().find(keyword)
-        if idx != -1:
-            for pattern in syntax_patterns:
-                matches = re.findall(pattern, query[idx:], flags=re.IGNORECASE)
-                conditions.extend(matches)
-    
-    return conditions
-
-def is_related_to_schema(query):
-    # Define keywords related to SQL queries
-    keywords = ["select", "from", "where", "and", "or", "not", "between", "like", "in", "is", 
-                "null", "order by", "group by", "having", "limit", "offset", "distinct", 
-                "join", "left join", "right join", "inner join", "outer join", "union", 
-                "intersect", "except"]
-    
-    # Split the query into sentences based on the presence of keywords
+def split_into_sentences(query, keywords):
+    # Split the query into sentences based on the keywords
     sentences = re.split(r'\b(?:{})\b'.format('|'.join(keywords)), query, flags=re.IGNORECASE)
+    return [sentence.strip() for sentence in sentences if sentence.strip()]
+
+def is_related_to_schema(sentence, column_embeddings, threshold=0.5):
+    # Encode the sentence into embeddings
+    sentence_embedding = model.encode(sentence)
     
-    # Encode column names into embeddings
-    column_embeddings = model.encode(column_names)
+    # Calculate cosine similarity between the sentence embedding and each column name embedding
+    similarities = cosine_similarity([sentence_embedding], column_embeddings)
     
-    # Initialize a flag to indicate if the query is related to the schema
-    related_to_schema = True
-    
-    # Iterate through each sentence
-    for sentence in sentences:
-        # Extract conditions from the sentence
-        conditions = extract_conditions(sentence)
-        
-        if conditions:
-            # Encode conditions into embeddings
-            condition_embeddings = model.encode(conditions)
-            
-            # Calculate cosine similarity between each condition embedding and each column name embedding
-            similarities = cosine_similarity(condition_embeddings, column_embeddings)
-            
-            # Check if any similarity score is below the threshold
-            if any(similarity < 0.5 for similarity in similarities.flatten()):
-                related_to_schema = False
-                break
-    
-    return related_to_schema
+    # Return True if any similarity score is above the threshold
+    return any(similarity > threshold for similarity in similarities.flatten())
 
 # Sample list of column names
 column_names = ["rule_id", "name", "description"]
@@ -136,7 +98,26 @@ column_names = ["rule_id", "name", "description"]
 while True:
     user_input = input("User: ")
     
-    if is_related_to_schema(user_input):
+    # Define the keywords used to split the input into sentences
+    keywords = ["and", "or", "but", "however", "although", "because", "since", "when"]
+    
+    # Split the user input into sentences
+    sentences = split_into_sentences(user_input, keywords)
+    
+    # Encode column names into embeddings
+    column_embeddings = model.encode(column_names)
+    
+    # Initialize a flag to indicate if any sentence is related to the schema
+    related_to_schema = False
+    
+    # Iterate through each sentence
+    for sentence in sentences:
+        # Check if the sentence is related to the schema
+        if is_related_to_schema(sentence, column_embeddings):
+            related_to_schema = True
+            break
+    
+    if related_to_schema:
         print("Chatbot: The query is related to the schema.")
         # Process the query with respect to the schema
         
@@ -146,6 +127,7 @@ while True:
         # Optionally, prompt the user to ask a query related to the schema
         
         # Update context flag to False if necessary
+
 
 
 
