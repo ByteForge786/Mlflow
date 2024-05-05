@@ -69,31 +69,49 @@ while True:
 
 
 
- import re
-from sklearn.metrics.pairwise import cosine_similarity
+ from sklearn.metrics.pairwise import cosine_similarity
 from sentence_transformers import SentenceTransformer
 
 # Load a pretrained sentence transformer model
 model = SentenceTransformer('paraphrase-distilroberta-base-v1')
 
-def split_into_sentences(query, keywords):
-    # Initialize a regular expression pattern to split the query
-    pattern = r'(?<=[{}])'.format(''.join(['\\' + keyword for keyword in keywords]))
+def is_related_to_schema(user_input, column_names, threshold=0.5):
+    # Convert column names to lowercase for case-insensitive comparison
+    column_names_lower = set(name.lower() for name in column_names)
     
-    # Split the query into sentences based on the pattern
-    sentences = re.split(pattern, query)
+    # Define keywords for splitting user input into sentences
+    keywords = ["and", "or", "but", "however", "although", "because", "since", "when", ".", ",", ";", ":", "!"]
     
-    # Filter out empty sentences and strip leading/trailing whitespaces
-    return [sentence.strip() for sentence in sentences if sentence.strip()]
-
-def is_related_to_schema(sentences, column_embeddings, threshold=0.5):
+    # Tokenize the user input into sentences based on the keywords
+    sentences = []
+    current_sentence = ''
+    for char in user_input:
+        if char.lower() in keywords:
+            if current_sentence:
+                sentences.append(current_sentence.strip())
+                current_sentence = ''
+        else:
+            current_sentence += char
+    if current_sentence:
+        sentences.append(current_sentence.strip())
+    
     # Iterate through each sentence
     for sentence in sentences:
-        # Encode the sentence into embeddings
-        sentence_embedding = model.encode(sentence)
+        # Tokenize the sentence into words
+        tokens = sentence.strip().lower().split()
         
-        # Calculate cosine similarity between the sentence embedding and each column name embedding
-        similarities = cosine_similarity([sentence_embedding], column_embeddings)
+        # Skip empty sentences
+        if not tokens:
+            continue
+        
+        # Encode column names into embeddings
+        column_embeddings = model.encode(column_names_lower)
+        
+        # Encode the sentence into embeddings
+        sentence_embedding = model.encode(tokens)
+        
+        # Calculate cosine similarity between sentence embedding and column name embeddings
+        similarities = cosine_similarity(sentence_embedding, column_embeddings)
         
         # Check if any similarity score is below the threshold
         if any(similarity < threshold for similarity in similarities.flatten()):
@@ -108,17 +126,8 @@ column_names = ["rule_id", "name", "description"]
 while True:
     user_input = input("User: ")
     
-    # Define the keywords used to tokenize the input into sentences
-    keywords = ["and", "or", "but", "however", "although", "because", "since", "when", "\.", ",", ";", ":"]
-    
-    # Tokenize the user input into sentences based on the keywords
-    sentences = split_into_sentences(user_input, keywords)
-    
-    # Encode column names into embeddings
-    column_embeddings = model.encode(column_names)
-    
     # Check if the user input is related to the schema
-    related_to_schema = is_related_to_schema(sentences, column_embeddings)
+    related_to_schema = is_related_to_schema(user_input, column_names)
     
     if related_to_schema:
         print("Chatbot: The query is related to the schema.")
