@@ -69,7 +69,7 @@ while True:
 
 
 
- from sklearn.metrics.pairwise import cosine_similarity
+from sklearn.metrics.pairwise import cosine_similarity
 from sentence_transformers import SentenceTransformer
 
 # Load a pretrained sentence transformer model
@@ -82,33 +82,28 @@ def is_related_to_schema(user_input, column_names, threshold=0.5):
     # Define keywords for splitting user input into sentences
     keywords = ["and", "or", "but", "however", "although", "because", "since", "when", ".", ",", ";", ":", "!"]
     
-    # Tokenize the user input into sentences based on the keywords
-    sentences = []
-    current_sentence = ''
-    for char in user_input:
-        if char.lower() in keywords:
-            if current_sentence:
-                sentences.append(current_sentence.strip())
-                current_sentence = ''
-        else:
-            current_sentence += char
-    if current_sentence:
-        sentences.append(current_sentence.strip())
+    # Split the user input into sentences based on the keywords
+    sentences = [user_input]
+    for keyword in keywords:
+        split_sentences = []
+        for sentence in sentences:
+            split_sentences.extend(sentence.split(keyword))
+        sentences = split_sentences
     
     # Iterate through each sentence
     for sentence in sentences:
-        # Tokenize the sentence into words
-        tokens = sentence.strip().lower().split()
-        
         # Skip empty sentences
-        if not tokens:
+        if not sentence.strip():
             continue
+        
+        # Convert the sentence to lowercase
+        sentence_lower = sentence.lower()
         
         # Encode column names into embeddings
         column_embeddings = model.encode(column_names_lower)
         
         # Encode the sentence into embeddings
-        sentence_embedding = model.encode(tokens)
+        sentence_embedding = model.encode([sentence_lower])
         
         # Calculate cosine similarity between sentence embedding and column name embeddings
         similarities = cosine_similarity(sentence_embedding, column_embeddings)
