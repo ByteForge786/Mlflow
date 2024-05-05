@@ -69,8 +69,6 @@ while True:
 
 
 
-
-
 import re
 from sklearn.metrics.pairwise import cosine_similarity
 from sentence_transformers import SentenceTransformer
@@ -97,21 +95,39 @@ def extract_conditions(query):
     return conditions
 
 def is_related_to_schema(query):
-    # Extract conditions from the query
-    conditions = extract_conditions(query)
+    # Define keywords related to SQL queries
+    keywords = ["select", "from", "where", "and", "or", "not", "between", "like", "in", "is", 
+                "null", "order by", "group by", "having", "limit", "offset", "distinct", 
+                "join", "left join", "right join", "inner join", "outer join", "union", 
+                "intersect", "except"]
     
-    # Encode column names and conditions into embeddings
+    # Split the query into sentences based on the presence of keywords
+    sentences = re.split(r'\b(?:{})\b'.format('|'.join(keywords)), query, flags=re.IGNORECASE)
+    
+    # Encode column names into embeddings
     column_embeddings = model.encode(column_names)
-    condition_embeddings = model.encode(conditions)
     
-    # Calculate cosine similarity between each condition embedding and each column name embedding
-    similarities = cosine_similarity(condition_embeddings, column_embeddings)
+    # Initialize a flag to indicate if the query is related to the schema
+    related_to_schema = True
     
-    # Set a threshold for similarity score
-    threshold = 0.5
+    # Iterate through each sentence
+    for sentence in sentences:
+        # Extract conditions from the sentence
+        conditions = extract_conditions(sentence)
+        
+        if conditions:
+            # Encode conditions into embeddings
+            condition_embeddings = model.encode(conditions)
+            
+            # Calculate cosine similarity between each condition embedding and each column name embedding
+            similarities = cosine_similarity(condition_embeddings, column_embeddings)
+            
+            # Check if any similarity score is below the threshold
+            if any(similarity < 0.5 for similarity in similarities.flatten()):
+                related_to_schema = False
+                break
     
-    # Return True if any similarity score is above the threshold
-    return any(similarity > threshold for similarity in similarities.flatten())
+    return related_to_schema
 
 # Sample list of column names
 column_names = ["rule_id", "name", "description"]
@@ -130,3 +146,8 @@ while True:
         # Optionally, prompt the user to ask a query related to the schema
         
         # Update context flag to False if necessary
+
+
+
+
+
